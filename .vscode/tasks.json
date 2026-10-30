@@ -1,0 +1,20 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Compilar GBA",
+      "type": "shell",
+      "options": {
+        "env": {
+          "DEVKITPRO": "C:/Users/analu/devkitPro",
+          "DEVKITARM": "C:/Users/analu/devkitPro/devkitARM"
+        }
+      },
+      "command": "C:/Users/analu/devkitPro/devkitARM/bin/arm-none-eabi-gcc -mcpu=arm7tdmi -specs=C:/Users/analu/devkitPro/devkitARM/arm-none-eabi/lib/gba.specs main.s sprite_jogador.s sprite_monitor.s cenario_map.s caixa_texto.s -o jogo.elf ; C:/Users/analu/devkitPro/devkitARM/bin/arm-none-eabi-objcopy -O binary jogo.elf jogo.gba",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    }
+  ]
+}
