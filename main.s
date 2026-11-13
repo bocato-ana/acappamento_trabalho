@@ -1,11 +1,12 @@
 @ =====================================================================
 @  main.s  -  GBA Modo 3  -  jogador + NPC + seta interativa + caixa
+@  + minijogo da barraca (tela secundária)
 @  devkitARM / mGBA
 @
 @  ARQUITETURA:
 @   - BG2 (bitmap Modo 3): cenário + NPC + caixa de diálogo.
-@       Só é escrito em eventos (início, abrir/fechar caixa), nunca
-@       por causa do movimento do jogador.
+@       Só é escrito em eventos (início, abrir/fechar caixa, minijogo),
+@       nunca por causa do movimento do jogador.
 @   - OBJ 0: jogador (64x64, 8bpp)  -> movido só alterando a OAM
 @   - OBJ 1: seta flutuante (8x8, 4bpp) -> idem
 @ =====================================================================
@@ -162,8 +163,16 @@ espera_vblank_inicio:
 @ =====================================================================
 pertode_npc:
     cmp  r4, #2                     @ Caixa de texto já aberta?
-    beq  game_loop                  @ Ela está no BG: nada a redesenhar
+    bne  estado_perto
 
+    @ --- ESTADO 2: caixa aberta. A agora abre o minijogo ---
+    ldr  r0, =REG_KEYINPUT
+    ldrh r1, [r0]
+    tst  r1, #KEY_A
+    bne  game_loop                  @ Não apertou A: segue
+    b    abrir_minijogo
+
+estado_perto:
     @ --- ESTADO 1: PERTO DO NPC (seta flutuando, sprite) ---
     mov  r4, #1
 
@@ -213,6 +222,25 @@ longe_do_npc:
 reset_estado:
     mov  r4, #0                     @ Volta para Estado 0 (Longe)
     b    game_loop
+
+@ ---------------------------------------------------------------------
+@  MINIJOGO: abre a tela da barraca e volta ao mundo ao sair
+@ ---------------------------------------------------------------------
+abrir_minijogo:
+    CHAMA esconder_seta_obj         @ Garante que a seta some
+    CHAMA iniciar_minijogo          @ Roda a tela secundária até apertar B
+    bl   restaurar_mundo            @ Volta o cenário, NPC e caixa
+    b    game_loop
+
+restaurar_mundo:
+    push {r4, lr}
+    bl   carregar_cenario_inicial
+    bl   desenhar_npc
+    mov  r0, #BOX_X
+    mov  r1, #BOX_Y
+    ldr  r2, =caixa_texto
+    CHAMA desenhar_caixa_dialogo    @ Só é alcançado a partir do estado 2
+    pop  {r4, pc}
 
 @ ---------------------------------------------------------------------
 carregar_cenario_inicial:
@@ -432,7 +460,7 @@ sprite_loop_x:
 .pool
 
 @ ---------------------------------------------------------------------
-@ Copia a caixa de diálogo para o BG (chamada só ao abrir)
+@ Copia a caixa de diálogo para o BG (chamada ao abrir e ao voltar do minijogo)
 @ ---------------------------------------------------------------------
 .global desenhar_caixa_dialogo
 desenhar_caixa_dialogo:

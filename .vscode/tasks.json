@@ -5,12 +5,13 @@
       "label": "Compilar GBA",
       "type": "shell",
       "options": {
+        "cwd": "${workspaceFolder}",
         "env": {
           "DEVKITPRO": "C:/Users/analu/devkitPro",
           "DEVKITARM": "C:/Users/analu/devkitPro/devkitARM"
         }
       },
-      "command": "C:/Users/analu/devkitPro/devkitARM/bin/arm-none-eabi-gcc -mcpu=arm7tdmi -specs=C:/Users/analu/devkitPro/devkitARM/arm-none-eabi/lib/gba.specs main.s sprite_jogador.s sprite_monitor.s cenario_map.s caixa_texto.s -o jogo.elf ; C:/Users/analu/devkitPro/devkitARM/bin/arm-none-eabi-objcopy -O binary jogo.elf jogo.gba",
+      "command": "C:/Users/analu/devkitPro/devkitARM/bin/arm-none-eabi-gcc -mcpu=arm7tdmi -specs=C:/Users/analu/devkitPro/devkitARM/arm-none-eabi/lib/gba.specs main.s minijogo.s sprite_raquete.s barraca_map.s cenario_map.s caixa_texto.s sprite_monitor.s sprite_jogador_obj.s -o jogo.elf; if ($?) { C:/Users/analu/devkitPro/devkitARM/bin/arm-none-eabi-objcopy -O binary jogo.elf jogo.gba }",
       "group": {
         "kind": "build",
         "isDefault": true
