@@ -54,6 +54,11 @@
 .equ SETA_X,            68             @ Posição X da seta (centralizada no NPC)
 .equ SETA_Y_BASE,       18             @ Posição Y base da seta (acima do NPC)
 
+.equ PESCA_X,           6              @ Posicao (canto do sprite do jogador) ao fim da doca
+.equ PESCA_Y,           46
+.equ PESCA_PROX_X,      14             @ Tolerancia em X (a doca fica a esquerda: x = 0..20)
+.equ PESCA_PROX_Y,      20             @ Tolerancia em Y (y = 26..66)
+
 .equ BOX_X,             20
 .equ BOX_Y,             112
 .equ BOX_W,             200
@@ -186,6 +191,7 @@ estado_perto:
     lsr  r1, r1, #3
     and  r1, r1, #3
     add  r0, r1, #SETA_Y_BASE
+    mov  r1, #SETA_X
     CHAMA mostrar_seta_obj          @ Só atualiza a OAM, sem apagar nada
 
     @ Checa se apertou a tecla X (Botão A)
@@ -205,8 +211,10 @@ estado_perto:
     b    game_loop
 
 longe_do_npc:
+    cmp  r4, #3
+    beq  checa_doca                 @ Estado 3 (doca): nada do NPC para limpar
     cmp  r4, #0
-    beq  game_loop                  @ Já estava longe
+    beq  checa_doca                 @ Já estava longe do NPC
 
     CHAMA esconder_seta_obj         @ Esconde a seta (estado 1 ou 2)
 
@@ -221,6 +229,49 @@ longe_do_npc:
 
 reset_estado:
     mov  r4, #0                     @ Volta para Estado 0 (Longe)
+
+@ =====================================================================
+@  DOCA DE PESCA  (Estado 3: perto da doca, seta sobre a cabeça)
+@ =====================================================================
+checa_doca:
+    sub  r0, r11, #PESCA_X
+    cmp  r0, #0
+    rsblt r0, r0, #0
+    cmp  r0, #PESCA_PROX_X
+    bgt  longe_da_doca
+
+    sub  r1, r12, #PESCA_Y
+    cmp  r1, #0
+    rsblt r1, r1, #0
+    cmp  r1, #PESCA_PROX_Y
+    bgt  longe_da_doca
+
+perto_da_doca:
+    mov  r4, #3
+
+    @ Seta flutuando acima da cabeça do jogador (Y oscila 0..3)
+    ldr  r0, =frame_contador
+    ldr  r1, [r0]
+    add  r1, r1, #1
+    str  r1, [r0]
+    lsr  r1, r1, #3
+    and  r1, r1, #3
+    add  r0, r12, r1
+    sub  r0, r0, #12
+    add  r1, r11, #16
+    CHAMA mostrar_seta_obj
+
+    ldr  r0, =REG_KEYINPUT
+    ldrh r1, [r0]
+    tst  r1, #KEY_A
+    bne  game_loop                  @ Não apertou A: segue
+    b    abrir_pesca
+
+longe_da_doca:
+    cmp  r4, #3
+    bne  game_loop
+    CHAMA esconder_seta_obj
+    mov  r4, #0
     b    game_loop
 
 @ ---------------------------------------------------------------------
@@ -231,6 +282,19 @@ abrir_minijogo:
     CHAMA iniciar_minijogo          @ Roda a tela secundária até apertar B
     bl   restaurar_mundo            @ Volta o cenário, NPC e caixa
     b    game_loop
+
+abrir_pesca:
+    CHAMA esconder_seta_obj
+    CHAMA iniciar_pesca             @ Roda a pescaria até acabar / apertar B
+    bl   restaurar_mundo_pesca      @ Volta o cenário e o NPC (sem caixa)
+    mov  r4, #0
+    b    game_loop
+
+restaurar_mundo_pesca:
+    push {r4, lr}
+    bl   carregar_cenario_inicial
+    bl   desenhar_npc
+    pop  {r4, pc}
 
 restaurar_mundo:
     push {r4, lr}
@@ -373,11 +437,12 @@ atualizar_jogador_obj:
 @ ---------------------------------------------------------------------
 .global mostrar_seta_obj
 mostrar_seta_obj:
-    @ Entrada: r0 = Y
+    @ Entrada: r0 = Y, r1 = X
     ldr  r2, =OAM
     and  r0, r0, #0xFF
     strh r0, [r2, #8]               @ Attr0: Y, 4bpp, quadrado, visível
-    mov  r3, #SETA_X
+    mov  r3, r1, lsl #23
+    mov  r3, r3, lsr #23            @ Só os 9 bits de X
     strh r3, [r2, #10]              @ Attr1: X, tamanho 8x8
     ldr  r3, =(SETA_TILE_INDEX | (SETA_PAL_BANK << 12))
     strh r3, [r2, #12]              @ Attr2: tile + banco de paleta
@@ -510,4 +575,3 @@ seta_tile:
     .word 0x00011000                @ Linha 5: 0 0 0 1 1 0 0 0
     .word 0x00000000                @ Linha 6
     .word 0x00000000                @ Linha 7
-    
