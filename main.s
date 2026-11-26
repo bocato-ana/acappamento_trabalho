@@ -49,7 +49,7 @@
 
 .equ NPC_X,             55
 .equ NPC_Y,             35
-.equ PROX,              35             @ Distância em pixels para interagir
+.equ PROX,              45             @ Distância em pixels para interagir
 
 .equ SETA_X,            96             @ Posição X da seta (centralizada na barraca)
 .equ SETA_Y_BASE,       22             @ Posição Y base da seta (acima da barraca)
