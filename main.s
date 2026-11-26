@@ -51,13 +51,18 @@
 .equ NPC_Y,             35
 .equ PROX,              35             @ Distância em pixels para interagir
 
-.equ SETA_X,            68             @ Posição X da seta (centralizada no NPC)
-.equ SETA_Y_BASE,       18             @ Posição Y base da seta (acima do NPC)
+.equ SETA_X,            96             @ Posição X da seta (centralizada na barraca)
+.equ SETA_Y_BASE,       22             @ Posição Y base da seta (acima da barraca)
 
 .equ PESCA_X,           6              @ Posicao (canto do sprite do jogador) ao fim da doca
 .equ PESCA_Y,           46
 .equ PESCA_PROX_X,      14             @ Tolerancia em X (a doca fica a esquerda: x = 0..20)
 .equ PESCA_PROX_Y,      20             @ Tolerancia em Y (y = 26..66)
+
+.equ FOGUEIRA_X,        160            @ Posicao da area da fogueira (tronco inferior esquerdo)
+.equ FOGUEIRA_Y,        30
+.equ FOGUEIRA_PROX_X,   20
+.equ FOGUEIRA_PROX_Y,   20
 
 .equ BOX_X,             20
 .equ BOX_Y,             112
@@ -269,6 +274,48 @@ perto_da_doca:
 
 longe_da_doca:
     cmp  r4, #3
+    bne  checa_fogueira
+    CHAMA esconder_seta_obj
+    mov  r4, #0
+
+@ =====================================================================
+@  AREA DA FOGUEIRA  (Estado 4: perto da fogueira, seta sobre a cabeça)
+@ =====================================================================
+checa_fogueira:
+    sub  r0, r11, #FOGUEIRA_X
+    cmp  r0, #0
+    rsblt r0, r0, #0
+    cmp  r0, #FOGUEIRA_PROX_X
+    bgt  longe_da_fogueira
+
+    sub  r1, r12, #FOGUEIRA_Y
+    cmp  r1, #0
+    rsblt r1, r1, #0
+    cmp  r1, #FOGUEIRA_PROX_Y
+    bgt  longe_da_fogueira
+
+perto_da_fogueira:
+    mov  r4, #4
+
+    ldr  r0, =frame_contador
+    ldr  r1, [r0]
+    add  r1, r1, #1
+    str  r1, [r0]
+    lsr  r1, r1, #3
+    and  r1, r1, #3
+    add  r0, r12, r1
+    sub  r0, r0, #12
+    add  r1, r11, #16
+    CHAMA mostrar_seta_obj
+
+    ldr  r0, =REG_KEYINPUT
+    ldrh r1, [r0]
+    tst  r1, #KEY_A
+    bne  game_loop
+    b    abrir_fogueira
+
+longe_da_fogueira:
+    cmp  r4, #4
     bne  game_loop
     CHAMA esconder_seta_obj
     mov  r4, #0
@@ -286,6 +333,13 @@ abrir_minijogo:
 abrir_pesca:
     CHAMA esconder_seta_obj
     CHAMA iniciar_pesca             @ Roda a pescaria até acabar / apertar B
+    bl   restaurar_mundo_pesca      @ Volta o cenário e o NPC (sem caixa)
+    mov  r4, #0
+    b    game_loop
+
+abrir_fogueira:
+    CHAMA esconder_seta_obj
+    CHAMA iniciar_fogueira          @ Roda o Guitar Hero da fogueira
     bl   restaurar_mundo_pesca      @ Volta o cenário e o NPC (sem caixa)
     mov  r4, #0
     b    game_loop

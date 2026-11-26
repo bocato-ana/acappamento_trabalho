@@ -101,11 +101,12 @@ desenhar_pontuacao:
     mov  r5, #0
     mov  r6, r4
 
-    cmp  r4, #10
+pontuacao_div10:
+    cmp  r6, #10
     blt  pontuacao_separada
-
-    mov  r5, #1
-    sub  r6, r4, #10
+    sub  r6, r6, #10
+    add  r5, r5, #1
+    b    pontuacao_div10
 
 pontuacao_separada:
 
