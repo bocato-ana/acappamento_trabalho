@@ -1,13 +1,13 @@
 @ =====================================================================
 @  main.s  -  GBA Modo 3  -  jogador + NPC + seta interativa + caixa
-@  + minijogo da barraca (tela secundária)
+@  + minijogo da barraca (tela secundÃ¡ria)
 @  devkitARM / mGBA
 @
 @  ARQUITETURA:
-@   - BG2 (bitmap Modo 3): cenário + NPC + caixa de diálogo.
-@       Só é escrito em eventos (início, abrir/fechar caixa, minijogo),
+@   - BG2 (bitmap Modo 3): cenÃ¡rio + NPC + caixa de diÃ¡logo.
+@       SÃ³ Ã© escrito em eventos (inÃ­cio, abrir/fechar caixa, minijogo),
 @       nunca por causa do movimento do jogador.
-@   - OBJ 0: jogador (64x64, 8bpp)  -> movido só alterando a OAM
+@   - OBJ 0: jogador (64x64, 8bpp)  -> movido sÃ³ alterando a OAM
 @   - OBJ 1: seta flutuante (8x8, 4bpp) -> idem
 @ =====================================================================
 
@@ -21,20 +21,24 @@
 .equ FORCED_BLANK,      0x0080
 .equ DISPCNT_MODE3_BG2_OBJ, 0x1443     @ Modo 3 + BG2 + OBJ ligado + mapeamento 1D
 
-@ --- Memória de OBJ ---
-@ Nos modos bitmap (3-5) os tiles de OBJ só existem a partir de 0x06014000
+@ --- MemÃ³ria de OBJ ---
+@ Nos modos bitmap (3-5) os tiles de OBJ sÃ³ existem a partir de 0x06014000
 @ (tile 512 em diante). Abaixo disso fica o framebuffer.
 .equ OBJ_VRAM,          0x06014000
 .equ OBJ_PALETTE,       0x05000200
 .equ OAM,               0x07000000
 
 .equ OBJ_TILE_INDEX,    512            @ Jogador: 0x06014000 (4096 bytes)
-.equ SETA_VRAM,         0x06015000     @ Logo após o jogador
+.equ SETA_VRAM,         0x06015000     @ Logo apÃ³s o jogador
 .equ SETA_TILE_INDEX,   640            @ (0x06015000 - 0x06010000) / 32
 .equ SETA_PAL_BANK,     15             @ Entradas 240-255 da paleta de OBJ
 .equ SETA_PAL_ADDR,     (OBJ_PALETTE + SETA_PAL_BANK * 32)
+.equ NPC_VRAM,          0x06016000     @ NPC 64x64 4bpp (2048 bytes)
+.equ NPC_TILE_INDEX,    768            @ (0x06016000 - 0x06010000) / 32
+.equ NPC_PAL_BANK,      13             @ Entradas 208-223 da paleta de OBJ
+.equ NPC_PAL_ADDR,      (OBJ_PALETTE + NPC_PAL_BANK * 32)
 
-.equ KEY_A,             0x0001         @ Botão A do GBA (Tecla X no mGBA)
+.equ KEY_A,             0x0001         @ BotÃ£o A do GBA (Tecla X no mGBA)
 .equ KEY_RIGHT,         0x0010
 .equ KEY_LEFT,          0x0020
 .equ KEY_UP,            0x0040
@@ -47,12 +51,12 @@
 .equ MAX_X,             200            @ SCREEN_W - SPR_W
 .equ MAX_Y,             112            @ SCREEN_H - SPR_H
 
-.equ NPC_X,             55
-.equ NPC_Y,             35
-.equ PROX,              45             @ Distância em pixels para interagir
+.equ NPC_X,             115
+.equ NPC_Y,             85
+.equ PROX,              45             @ DistÃ¢ncia em pixels para interagir
 
-.equ SETA_X,            96             @ Posição X da seta (centralizada na barraca)
-.equ SETA_Y_BASE,       22             @ Posição Y base da seta (acima da barraca)
+.equ SETA_X,            128            @ PosiÃ§Ã£o X da seta (centralizada no NPC)
+.equ SETA_Y_BASE,       68             @ PosiÃ§Ã£o Y base da seta (acima do NPC)
 
 .equ PESCA_X,           6              @ Posicao (canto do sprite do jogador) ao fim da doca
 .equ PESCA_Y,           46
@@ -64,6 +68,13 @@
 .equ FOGUEIRA_PROX_X,   20
 .equ FOGUEIRA_PROX_Y,   20
 
+.equ BARRACA_X,         80             @ Posicao da entrada da barraca amarela
+.equ BARRACA_Y,         20
+.equ BARRACA_PROX_X,    28
+.equ BARRACA_PROX_Y,    25
+.equ BARRACA_SETA_X,    96
+.equ BARRACA_SETA_Y,    18
+
 .equ BOX_X,             20
 .equ BOX_Y,             112
 .equ BOX_W,             200
@@ -71,7 +82,7 @@
 
 .equ DMA_CENARIO,       0x84004B00
 
-@ Macro para chamadas de longa distância entre ROM e IWRAM
+@ Macro para chamadas de longa distÃ¢ncia entre ROM e IWRAM
 .macro CHAMA rotina
     ldr  r8, =\rotina
     mov  lr, pc
@@ -79,7 +90,7 @@
 .endm
 
 @ =====================================================================
-@  CÓDIGO PRINCIPAL (ROM)
+@  CÃ“DIGO PRINCIPAL (ROM)
 @ =====================================================================
 .section .text
 .arm
@@ -95,14 +106,14 @@ main:
     mov  r12, #70                   @ Jogador Y inicial
     mov  r4,  #0                    @ Estado: 0=Longe, 1=Perto(Seta), 2=Caixa Aberta
 
-    @ --- Background: cenário + NPC (desenhados UMA vez) ---
+    @ --- Background: cenÃ¡rio (desenhado UMA vez) ---
     bl   carregar_cenario_inicial
-    bl   desenhar_npc
 
     @ --- Sprites ---
     CHAMA inicializar_oam
     CHAMA carregar_jogador_obj
     CHAMA carregar_seta_obj
+    CHAMA carregar_npc_obj
 
     mov  r0, r11
     mov  r1, r12
@@ -113,10 +124,10 @@ main:
     strh r1, [r0]                   @ Liga a tela (BG2 + OBJ)
 
 @ =====================================================================
-@  LOOP PRINCIPAL DO JOGO  (1 iteração = 1 frame)
+@  LOOP PRINCIPAL DO JOGO  (1 iteraÃ§Ã£o = 1 frame)
 @ =====================================================================
 game_loop:
-    @ ---------------- Sincronização VBlank ----------------
+    @ ---------------- SincronizaÃ§Ã£o VBlank ----------------
     ldr  r0, =REG_VCOUNT
 espera_vblank_fim:
     ldrh r1, [r0]
@@ -150,7 +161,7 @@ espera_vblank_inicio:
     cmp  r12, #MAX_Y
     movgt r12, #MAX_Y
 
-    @ --- Move o sprite do jogador (só escreve na OAM, o fundo não é tocado) ---
+    @ --- Move o sprite do jogador (sÃ³ escreve na OAM, o fundo nÃ£o Ã© tocado) ---
     mov  r0, r11
     mov  r1, r12
     CHAMA atualizar_jogador_obj
@@ -169,24 +180,31 @@ espera_vblank_inicio:
     bgt  longe_do_npc
 
 @ =====================================================================
-@  INTERAÇÃO COM O NPC (ESTADOS DE PROXIMIDADE)
+@  INTERAÃ‡ÃƒO COM O NPC (ESTADOS DE PROXIMIDADE)
 @ =====================================================================
 pertode_npc:
-    cmp  r4, #2                     @ Caixa de texto já aberta?
+    cmp  r4, #2                     @ Caixa de texto jÃ¡ aberta?
     bne  estado_perto
 
-    @ --- ESTADO 2: caixa aberta. A agora abre o minijogo ---
+    @ --- ESTADO 2: caixa aberta. B fecha a caixa (ou andar para longe) ---
     ldr  r0, =REG_KEYINPUT
     ldrh r1, [r0]
-    tst  r1, #KEY_A
-    bne  game_loop                  @ Não apertou A: segue
-    b    abrir_minijogo
+    tst  r1, #0x0002                 @ KEY_B
+    bne  game_loop
+    mov  r0, #BOX_X
+    mov  r1, #BOX_Y
+    mov  r2, #BOX_W
+    mov  r3, #BOX_H
+    ldr  r4, =cenario_map
+    CHAMA apagar_retangulo
+    mov  r4, #0
+    b    game_loop
 
 estado_perto:
     @ --- ESTADO 1: PERTO DO NPC (seta flutuando, sprite) ---
     mov  r4, #1
 
-    @ Incrementa contador de animação da seta
+    @ Incrementa contador de animaÃ§Ã£o da seta
     ldr  r0, =frame_contador
     ldr  r1, [r0]
     add  r1, r1, #1
@@ -197,15 +215,15 @@ estado_perto:
     and  r1, r1, #3
     add  r0, r1, #SETA_Y_BASE
     mov  r1, #SETA_X
-    CHAMA mostrar_seta_obj          @ Só atualiza a OAM, sem apagar nada
+    CHAMA mostrar_seta_obj          @ SÃ³ atualiza a OAM, sem apagar nada
 
-    @ Checa se apertou a tecla X (Botão A)
+    @ Checa se apertou a tecla X (BotÃ£o A)
     ldr  r0, =REG_KEYINPUT
     ldrh r1, [r0]
     tst  r1, #KEY_A                 @ Bit 0 = 0 quando pressionado
-    bne  game_loop                  @ Se não apertou, volta pro loop
+    bne  game_loop                  @ Se nÃ£o apertou, volta pro loop
 
-    @ --- APERTOU X: esconde a seta e desenha a caixa no BG (uma única vez) ---
+    @ --- APERTOU X: esconde a seta e desenha a caixa no BG (uma Ãºnica vez) ---
     CHAMA esconder_seta_obj
 
     mov  r0, #BOX_X
@@ -217,13 +235,13 @@ estado_perto:
 
 longe_do_npc:
     cmp  r4, #3
-    beq  checa_doca                 @ Estado 3 (doca): nada do NPC para limpar
+    bge  checa_doca                 @ Estados 3, 4, 5 (doca/fogueira/barraca): nada do NPC para limpar
     cmp  r4, #0
-    beq  checa_doca                 @ Já estava longe do NPC
+    beq  checa_doca                 @ JÃ¡ estava longe do NPC
 
     CHAMA esconder_seta_obj         @ Esconde a seta (estado 1 ou 2)
 
-    @ Restaura o cenário sob a caixa (se estava no Estado 2)
+    @ Restaura o cenÃ¡rio sob a caixa (se estava no Estado 2)
     cmp  r4, #2
     bne  reset_estado
     mov  r0, #BOX_X
@@ -236,7 +254,7 @@ reset_estado:
     mov  r4, #0                     @ Volta para Estado 0 (Longe)
 
 @ =====================================================================
-@  DOCA DE PESCA  (Estado 3: perto da doca, seta sobre a cabeça)
+@  DOCA DE PESCA  (Estado 3: perto da doca, seta sobre a cabeÃ§a)
 @ =====================================================================
 checa_doca:
     sub  r0, r11, #PESCA_X
@@ -254,7 +272,7 @@ checa_doca:
 perto_da_doca:
     mov  r4, #3
 
-    @ Seta flutuando acima da cabeça do jogador (Y oscila 0..3)
+    @ Seta flutuando acima da cabeÃ§a do jogador (Y oscila 0..3)
     ldr  r0, =frame_contador
     ldr  r1, [r0]
     add  r1, r1, #1
@@ -269,7 +287,7 @@ perto_da_doca:
     ldr  r0, =REG_KEYINPUT
     ldrh r1, [r0]
     tst  r1, #KEY_A
-    bne  game_loop                  @ Não apertou A: segue
+    bne  game_loop                  @ NÃ£o apertou A: segue
     b    abrir_pesca
 
 longe_da_doca:
@@ -279,7 +297,7 @@ longe_da_doca:
     mov  r4, #0
 
 @ =====================================================================
-@  AREA DA FOGUEIRA  (Estado 4: perto da fogueira, seta sobre a cabeça)
+@  AREA DA FOGUEIRA  (Estado 4: perto da fogueira, seta sobre a cabeÃ§a)
 @ =====================================================================
 checa_fogueira:
     sub  r0, r11, #FOGUEIRA_X
@@ -316,6 +334,47 @@ perto_da_fogueira:
 
 longe_da_fogueira:
     cmp  r4, #4
+    bne  checa_barraca
+    CHAMA esconder_seta_obj
+    mov  r4, #0
+
+@ =====================================================================
+@  BARRACA AMARELA  (Estado 5: perto da barraca, seta na barraca -> mosquito)
+@ =====================================================================
+checa_barraca:
+    sub  r0, r11, #BARRACA_X
+    cmp  r0, #0
+    rsblt r0, r0, #0
+    cmp  r0, #BARRACA_PROX_X
+    bgt  longe_da_barraca
+
+    sub  r1, r12, #BARRACA_Y
+    cmp  r1, #0
+    rsblt r1, r1, #0
+    cmp  r1, #BARRACA_PROX_Y
+    bgt  longe_da_barraca
+
+perto_da_barraca:
+    mov  r4, #5
+
+    ldr  r0, =frame_contador
+    ldr  r1, [r0]
+    add  r1, r1, #1
+    str  r1, [r0]
+    lsr  r1, r1, #3
+    and  r1, r1, #3
+    add  r0, r1, #BARRACA_SETA_Y
+    mov  r1, #BARRACA_SETA_X
+    CHAMA mostrar_seta_obj
+
+    ldr  r0, =REG_KEYINPUT
+    ldrh r1, [r0]
+    tst  r1, #KEY_A
+    bne  game_loop
+    b    abrir_minijogo
+
+longe_da_barraca:
+    cmp  r4, #5
     bne  game_loop
     CHAMA esconder_seta_obj
     mov  r4, #0
@@ -326,21 +385,22 @@ longe_da_fogueira:
 @ ---------------------------------------------------------------------
 abrir_minijogo:
     CHAMA esconder_seta_obj         @ Garante que a seta some
-    CHAMA iniciar_minijogo          @ Roda a tela secundária até apertar B
-    bl   restaurar_mundo            @ Volta o cenário, NPC e caixa
+    CHAMA iniciar_minijogo          @ Roda a tela secundÃ¡ria atÃ© apertar B
+    bl   restaurar_mundo_pesca      @ Volta o cenÃ¡rio e o NPC (sem caixa)
+    mov  r4, #0
     b    game_loop
 
 abrir_pesca:
     CHAMA esconder_seta_obj
-    CHAMA iniciar_pesca             @ Roda a pescaria até acabar / apertar B
-    bl   restaurar_mundo_pesca      @ Volta o cenário e o NPC (sem caixa)
+    CHAMA iniciar_pesca             @ Roda a pescaria atÃ© acabar / apertar B
+    bl   restaurar_mundo_pesca      @ Volta o cenÃ¡rio e o NPC (sem caixa)
     mov  r4, #0
     b    game_loop
 
 abrir_fogueira:
     CHAMA esconder_seta_obj
     CHAMA iniciar_fogueira          @ Roda o Guitar Hero da fogueira
-    bl   restaurar_mundo_pesca      @ Volta o cenário e o NPC (sem caixa)
+    bl   restaurar_mundo_pesca      @ Volta o cenÃ¡rio e o NPC (sem caixa)
     mov  r4, #0
     b    game_loop
 
@@ -357,7 +417,7 @@ restaurar_mundo:
     mov  r0, #BOX_X
     mov  r1, #BOX_Y
     ldr  r2, =caixa_texto
-    CHAMA desenhar_caixa_dialogo    @ Só é alcançado a partir do estado 2
+    CHAMA desenhar_caixa_dialogo    @ SÃ³ Ã© alcanÃ§ado a partir do estado 2
     pop  {r4, pc}
 
 @ ---------------------------------------------------------------------
@@ -383,15 +443,17 @@ desenhar_npc:
 
 .pool
 
+.pool
+
 @ =====================================================================
-@  ROTINAS (EXECUTADAS NA IWRAM - RÁPIDAS)
+@  ROTINAS (EXECUTADAS NA IWRAM - RÃPIDAS)
 @ =====================================================================
 .section .iwram, "ax", %progbits
 .arm
 .align 2
 
 @ ---------------------------------------------------------------------
-@ Esconde os 128 objetos (OAM zerada = sprites 8x8 visíveis em (0,0))
+@ Esconde os 128 objetos (OAM zerada = sprites 8x8 visÃ­veis em (0,0))
 @ ---------------------------------------------------------------------
 .global inicializar_oam
 inicializar_oam:
@@ -405,8 +467,10 @@ inicializar_oam:
 
 .pool
 
+.pool
+
 @ ---------------------------------------------------------------------
-@ Jogador: copia tiles e paleta para a memória de OBJ
+@ Jogador: copia tiles e paleta para a memÃ³ria de OBJ
 @ ---------------------------------------------------------------------
 .global carregar_jogador_obj
 carregar_jogador_obj:
@@ -435,6 +499,8 @@ carregar_jogador_obj:
 
 .pool
 
+.pool
+
 @ ---------------------------------------------------------------------
 @ Seta: 1 tile 4bpp (32 bytes) + 3 cores na paleta do banco 15
 @ ---------------------------------------------------------------------
@@ -460,6 +526,8 @@ carregar_seta_obj:
 
 .pool
 
+.pool
+
 @ ---------------------------------------------------------------------
 @ OAM: jogador = objeto 0
 @ ---------------------------------------------------------------------
@@ -478,7 +546,7 @@ atualizar_jogador_obj:
     orr  r3, r3, r0
     strh r3, [r2, #2]
 
-    @ Atributo 2: índice inicial dos tiles
+    @ Atributo 2: Ã­ndice inicial dos tiles
     ldr  r3, =OBJ_TILE_INDEX
     strh r3, [r2, #4]
 
@@ -486,17 +554,19 @@ atualizar_jogador_obj:
 
 .pool
 
+.pool
+
 @ ---------------------------------------------------------------------
-@ OAM: seta = objeto 1  (8 bytes após o objeto 0)
+@ OAM: seta = objeto 1  (8 bytes apÃ³s o objeto 0)
 @ ---------------------------------------------------------------------
 .global mostrar_seta_obj
 mostrar_seta_obj:
     @ Entrada: r0 = Y, r1 = X
     ldr  r2, =OAM
     and  r0, r0, #0xFF
-    strh r0, [r2, #8]               @ Attr0: Y, 4bpp, quadrado, visível
+    strh r0, [r2, #8]               @ Attr0: Y, 4bpp, quadrado, visÃ­vel
     mov  r3, r1, lsl #23
-    mov  r3, r3, lsr #23            @ Só os 9 bits de X
+    mov  r3, r3, lsr #23            @ SÃ³ os 9 bits de X
     strh r3, [r2, #10]              @ Attr1: X, tamanho 8x8
     ldr  r3, =(SETA_TILE_INDEX | (SETA_PAL_BANK << 12))
     strh r3, [r2, #12]              @ Attr2: tile + banco de paleta
@@ -511,8 +581,10 @@ esconder_seta_obj:
 
 .pool
 
+.pool
+
 @ ---------------------------------------------------------------------
-@ Restaura um retângulo do cenário (usado só ao fechar a caixa)
+@ Restaura um retÃ¢ngulo do cenÃ¡rio (usado sÃ³ ao fechar a caixa)
 @ r0=x, r1=y, r2=largura, r3=altura
 @ ---------------------------------------------------------------------
 .global apagar_retangulo
@@ -538,9 +610,11 @@ apagar_retangulo:
 
 .pool
 
+.pool
+
 @ ---------------------------------------------------------------------
 @ Desenha sprite (bitmap RGB555 com magenta transparente) no BG
-@ Usado só no carregamento inicial (NPC)
+@ Usado sÃ³ no carregamento inicial (NPC)
 @ ---------------------------------------------------------------------
 .global desenhar_sprite
 desenhar_sprite:
@@ -578,8 +652,10 @@ sprite_loop_x:
 
 .pool
 
+.pool
+
 @ ---------------------------------------------------------------------
-@ Copia a caixa de diálogo para o BG (chamada ao abrir e ao voltar do minijogo)
+@ Copia a caixa de diÃ¡logo para o BG (chamada ao abrir e ao voltar do minijogo)
 @ ---------------------------------------------------------------------
 .global desenhar_caixa_dialogo
 desenhar_caixa_dialogo:
@@ -608,8 +684,41 @@ desenhar_caixa_dialogo:
 
 .pool
 
+@ ---------------------------------------------------------------------
+@  carregar_npc_obj: carrega NPC 64x64 4bpp em OBJ 2 (tiles)
+@ ---------------------------------------------------------------------
+.global carregar_npc_obj
+carregar_npc_obj:
+    ldr  r0, =sprite_monitor_obj_tiles
+    ldr  r1, =NPC_VRAM
+    mov  r2, #1024                      @ 4096 bytes = 1024 words (64x64 8bpp)
+1:  ldr  r3, [r0], #4
+    str  r3, [r1], #4
+    subs r2, r2, #1
+    bne  1b
+
+    ldr  r0, =sprite_monitor_obj_palette
+    ldr  r1, =(OBJ_PALETTE + 124 * 2)   @ Entradas 124.. da paleta de OBJ
+    ldr  r2, =sprite_monitor_obj_palette_count
+    ldr  r2, [r2]
+2:  ldrh r3, [r0], #2
+    strh r3, [r1], #2
+    subs r2, r2, #1
+    bne  2b
+
+    ldr  r0, =(OAM + 16)                @ OBJ 2
+    ldr  r1, =(NPC_Y | 0x2000)
+    strh r1, [r0, #0]                   @ Attr0: Y, 8bpp, square
+    ldr  r1, =(NPC_X | 0xC000)
+    strh r1, [r0, #2]                   @ Attr1: X, 64x64
+    ldr  r1, =NPC_TILE_INDEX
+    strh r1, [r0, #4]                   @ Attr2: tile 768 (8bpp)
+    bx   lr
+
+.pool
+
 @ =====================================================================
-@  VARIÁVEIS E GRÁFICOS AUXILIARES
+@  VARIÃVEIS E GRÃFICOS AUXILIARES
 @ =====================================================================
 .data
 .align 2
@@ -618,7 +727,7 @@ frame_contador:
     .word 0
 
 @ Seta 8x8, 4bpp (1 tile = 8 palavras, 1 palavra por linha, pixel 0 = nibble baixo)
-@ Índices: 0 = transparente, 1 = preto, 2 = amarelo
+@ Ãndices: 0 = transparente, 1 = preto, 2 = amarelo
 .align 2
 seta_tile:
     .word 0x11111111                @ Linha 0: 1 1 1 1 1 1 1 1

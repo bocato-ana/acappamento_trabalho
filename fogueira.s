@@ -405,7 +405,7 @@ fogueira_atualizar_tempo:
 @ ---------------------------------------------------------------------
 fogueira_desenhar_fundo:
     ldr  r0, =0x040000D4                @ REG_DMA3SAD
-    ldr  r1, =fogueira_map
+    ldr  r1, =campGuitarBitmap
     str  r1, [r0, #0]
     ldr  r1, =VRAM
     str  r1, [r0, #4]

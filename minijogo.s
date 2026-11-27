@@ -63,8 +63,8 @@ botaoA_anterior:  .word 0
 tempo_sub:        .word 0          @ frames dentro do segundo atual (0-59)
 mosquitoX:        .word 50
 mosquitoY:        .word 40
-mosquitoVX:       .word 2
-mosquitoVY:       .word 2
+mosquitoVX:       .word 1
+mosquitoVY:       .word 1
 
 @ =====================================================================
 @  CÓDIGO (IWRAM)
@@ -205,13 +205,13 @@ loop_minijogo:
 
     @ Movimento da raquete
     tst  r1, #KEY_UP
-    subeq r12, r12, #1
+    subeq r12, r12, #2
     tst  r1, #KEY_DOWN
-    addeq r12, r12, #1
+    addeq r12, r12, #2
     tst  r1, #KEY_LEFT
-    subeq r11, r11, #1
+    subeq r11, r11, #2
     tst  r1, #KEY_RIGHT
-    addeq r11, r11, #1
+    addeq r11, r11, #2
 
     @ Limites da raquete
     cmp  r11, #0
@@ -372,28 +372,36 @@ mover_fim:
 verificar_colisao:
     push {r4-r7, lr}
 
+    @ parte mais central do mosquito 24x24
+    @ Margem de 8 pixels em cada lado
+
     ldr  r5, =mosquitoX
     ldr  r6, [r5]
+    add  r6, r6, #8                @ desloca a hitbox para dentro
 
-    add  r7, r6, #MOS_W             @ direita do mosquito > esquerda da raquete
+    add  r7, r6, #24                @ direita do mosquito
     cmp  r7, r11
     ble  colisao_nenhuma
-    add  r7, r11, #RAQ_W            @ esquerda do mosquito < direita da raquete
+
+    add  r7, r11, #24               @ direita da raquete (hitbox 24)
     cmp  r6, r7
     bge  colisao_nenhuma
 
     ldr  r5, =mosquitoY
     ldr  r6, [r5]
+    add  r6, r6, #8                 @ desloca a hitbox para dentro
 
-    add  r7, r6, #MOS_H             @ baixo do mosquito > topo da raquete
+    add  r7, r6, #24                @ baixo do mosquito
     cmp  r7, r12
     ble  colisao_nenhuma
-    add  r7, r12, #RAQ_H            @ topo do mosquito < baixo da raquete
+
+    add  r7, r12, #24              @ baixo da raquete (hitbox 48)
     cmp  r6, r7
     bge  colisao_nenhuma
 
     mov  r0, #0
-    b    colisao_fim
+    b   colisao_fim
+
 
 colisao_nenhuma:
     mvn  r0, #0
